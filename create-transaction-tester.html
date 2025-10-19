@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Testador de Transações - CitrineOS</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .header {
+            text-align: center;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section h3 {
+            color: #34495e;
+            border-left: 4px solid #3498db;
+            padding-left: 10px;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        button.danger {
+            background: #e74c3c;
+        }
+        button.danger:hover {
+            background: #c0392b;
+        }
+        button.success {
+            background: #27ae60;
+        }
+        button.success:hover {
+            background: #229954;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d5f4e6;
+            color: #27ae60;
+            border: 1px solid #27ae60;
+        }
+        .status.error {
+            background: #fadbd8;
+            color: #e74c3c;
+            border: 1px solid #e74c3c;
+        }
+        .status.info {
+            background: #d6eaf8;
+            color: #3498db;
+            border: 1px solid #3498db;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .log {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .transaction-card {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            background: #f8f9fa;
+        }
+        .transaction-card.active {
+            border-color: #27ae60;
+            background: #d5f4e6;
+        }
+        .transaction-card.completed {
+            border-color: #95a5a6;
+            background: #ecf0f1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔋 Testador de Transações - CitrineOS</h1>
+            <p>Interface para testar funcionalidades transacionais sem carregador real</p>
+        </div>
+
+        <div class="grid">
+            <div class="section">
+                <h3>🎮 Controles de Transação</h3>
+                <div class="form-group">
+                    <label>Station ID:</label>
+                    <input type="text" id="stationId" value="TEST_STATION_001" placeholder="ID do carregador">
+                </div>
+                <div class="form-group">
+                    <label>Transaction ID:</label>
+                    <input type="text" id="transactionId" value="" placeholder="ID da transação (gerado automaticamente)">
+                </div>
+                <div class="form-group">
+                    <label>Charging State:</label>
+                    <select id="chargingState">
+                        <option value="Charging">Charging</option>
+                        <option value="EVConnected">EV Connected</option>
+                        <option value="SuspendedEV">Suspended EV</option>
+                        <option value="SuspendedEVSE">Suspended EVSE</option>
+                        <option value="Idle">Idle</option>
+                    </select>
+                </div>
+                <button onclick="createTransaction()" class="success">➕ Criar Transação</button>
+                <button onclick="startCharging()" class="success">🔋 Iniciar Carregamento</button>
+                <button onclick="stopCharging()" class="danger">⏹️ Parar Carregamento</button>
+                <button onclick="updateTransaction()">🔄 Atualizar Transação</button>
+                <button onclick="deleteTransaction()" class="danger">🗑️ Deletar Transação</button>
+            </div>
+
+            <div class="section">
+                <h3>📊 Status da Transação</h3>
+                <div id="transactionStatus" class="status info">
+                    Nenhuma transação ativa
+                </div>
+                <div class="form-group">
+                    <label>Energia Total (kWh):</label>
+                    <input type="number" id="totalKwh" value="0" step="0.1" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Tempo de Carregamento (segundos):</label>
+                    <input type="number" id="timeSpent" value="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Status:</label>
+                    <select id="transactionStatus">
+                        <option value="true">Ativa</option>
+                        <option value="false">Finalizada</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>📋 Transações Existentes</h3>
+            <button onclick="loadTransactions()">🔄 Carregar Transações</button>
+            <button onclick="clearTransactions()" class="danger">🗑️ Limpar Todas</button>
+            <div id="transactionsList"></div>
+        </div>
+
+        <div class="section">
+            <h3>📝 Log de Atividades</h3>
+            <button onclick="clearLog()">🗑️ Limpar Log</button>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8090/v1/graphql';
+        let currentTransactionId = null;
+
+        // Gerar ID único para transação
+        function generateTransactionId() {
+            return 'TXN_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Log de atividades
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            logDiv.textContent += logEntry;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // Limpar log
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+
+        // Fazer requisição GraphQL
+        async function graphqlRequest(query, variables = {}) {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        variables: variables
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.errors) {
+                    throw new Error(data.errors[0].message);
+                }
+
+                return data.data;
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        // Criar transação
+        async function createTransaction() {
+            const stationId = document.getElementById('stationId').value;
+            const transactionId = generateTransactionId();
+            const chargingState = document.getElementById('chargingState').value;
+
+            document.getElementById('transactionId').value = transactionId;
+            currentTransactionId = transactionId;
+
+            const query = `
+                mutation CreateTransaction($stationId: String!, $transactionId: String!, $chargingState: String!) {
+                    insert_Transactions_one(object: {
+                        stationId: $stationId,
+                        transactionId: $transactionId,
+                        isActive: true,
+                        chargingState: $chargingState,
+                        totalKwh: 0.0,
+                        timeSpentCharging: 0
+                    }) {
+                        id
+                        transactionId
+                        isActive
+                        chargingState
+                    }
+                }
+            `;
+
+            try {
+                const result = await graphqlRequest(query, {
+                    stationId,
+                    transactionId,
+                    chargingState
+                });
+
+                log(`✅ Transação criada: ${transactionId}`, 'success');
+                updateTransactionStatus(`Transação ativa: ${transactionId}`);
+                loadTransactions();
+            } catch (error) {
+                log(`❌ Erro ao criar transação: ${error.message}`, 'error');
+            }
+        }
+
+        // Iniciar carregamento
+        async function startCharging() {
+            if (!currentTransactionId) {
+                log('❌ Nenhuma transação selecionada', 'error');
+                return;
+            }
+
+            const query = `
+                mutation StartCharging($transactionId: String!) {
+                    update_Transactions(
+                        where: {transactionId: {_eq: $transactionId}},
+                        _set: {
+                            isActive: true,
+                            chargingState: "Charging",
+                            totalKwh: 0.0,
+                            timeSpentCharging: 0
+                        }
+                    ) {
+                        affected_rows
+                    }
+                }
+            `;
+
+            try {
+                await graphqlRequest(query, { transactionId: currentTransactionId });
+                log(`🔋 Carregamento iniciado: ${currentTransactionId}`, 'success');
+                updateTransactionStatus(`Carregando: ${currentTransactionId}`);
+                loadTransactions();
+            } catch (error) {
+                log(`❌ Erro ao iniciar carregamento: ${error.message}`, 'error');
+            }
+        }
+
+        // Parar carregamento
+        async function stopCharging() {
+            if (!currentTransactionId) {
+                log('❌ Nenhuma transação selecionada', 'error');
+                return;
+            }
+
+            const totalKwh = parseFloat(document.getElementById('totalKwh').value);
+            const timeSpent = parseInt(document.getElementById('timeSpent').value);
+
+            const query = `
+                mutation StopCharging($transactionId: String!, $totalKwh: Float!, $timeSpent: Int!) {
+                    update_Transactions(
+                        where: {transactionId: {_eq: $transactionId}},
+                        _set: {
+                            isActive: false,
+                            chargingState: "Completed",
+                            totalKwh: $totalKwh,
+                            timeSpentCharging: $timeSpent
+                        }
+                    ) {
+                        affected_rows
+                    }
+                }
+            `;
+
+            try {
+                await graphqlRequest(query, {
+                    transactionId: currentTransactionId,
+                    totalKwh,
+                    timeSpent
+                });
+                log(`⏹️ Carregamento parado: ${currentTransactionId}`, 'success');
+                updateTransactionStatus(`Transação finalizada: ${currentTransactionId}`);
+                loadTransactions();
+            } catch (error) {
+                log(`❌ Erro ao parar carregamento: ${error.message}`, 'error');
+            }
+        }
+
+        // Atualizar transação
+        async function updateTransaction() {
+            if (!currentTransactionId) {
+                log('❌ Nenhuma transação selecionada', 'error');
+                return;
+            }
+
+            const totalKwh = parseFloat(document.getElementById('totalKwh').value);
+            const timeSpent = parseInt(document.getElementById('timeSpent').value);
+            const isActive = document.getElementById('transactionStatus').value === 'true';
+
+            const query = `
+                mutation UpdateTransaction($transactionId: String!, $totalKwh: Float!, $timeSpent: Int!, $isActive: Boolean!) {
+                    update_Transactions(
+                        where: {transactionId: {_eq: $transactionId}},
+                        _set: {
+                            totalKwh: $totalKwh,
+                            timeSpentCharging: $timeSpent,
+                            isActive: $isActive
+                        }
+                    ) {
+                        affected_rows
+                    }
+                }
+            `;
+
+            try {
+                await graphqlRequest(query, {
+                    transactionId: currentTransactionId,
+                    totalKwh,
+                    timeSpent,
+                    isActive
+                });
+                log(`🔄 Transação atualizada: ${currentTransactionId}`, 'success');
+                loadTransactions();
+            } catch (error) {
+                log(`❌ Erro ao atualizar transação: ${error.message}`, 'error');
+            }
+        }
+
+        // Deletar transação
+        async function deleteTransaction() {
+            if (!currentTransactionId) {
+                log('❌ Nenhuma transação selecionada', 'error');
+                return;
+            }
+
+            if (!confirm('Tem certeza que deseja deletar esta transação?')) {
+                return;
+            }
+
+            const query = `
+                mutation DeleteTransaction($transactionId: String!) {
+                    delete_Transactions(where: {transactionId: {_eq: $transactionId}}) {
+                        affected_rows
+                    }
+                }
+            `;
+
+            try {
+                await graphqlRequest(query, { transactionId: currentTransactionId });
+                log(`🗑️ Transação deletada: ${currentTransactionId}`, 'success');
+                currentTransactionId = null;
+                document.getElementById('transactionId').value = '';
+                updateTransactionStatus('Nenhuma transação ativa');
+                loadTransactions();
+            } catch (error) {
+                log(`❌ Erro ao deletar transação: ${error.message}`, 'error');
+            }
+        }
+
+        // Carregar transações
+        async function loadTransactions() {
+            const query = `
+                query LoadTransactions {
+                    Transactions(limit: 10, order_by: {createdAt: desc}) {
+                        id
+                        transactionId
+                        stationId
+                        isActive
+                        chargingState
+                        totalKwh
+                        timeSpentCharging
+                        createdAt
+                        updatedAt
+                    }
+                }
+            `;
+
+            try {
+                const result = await graphqlRequest(query);
+                displayTransactions(result.Transactions);
+                log(`📊 ${result.Transactions.length} transações carregadas`, 'info');
+            } catch (error) {
+                log(`❌ Erro ao carregar transações: ${error.message}`, 'error');
+            }
+        }
+
+        // Exibir transações
+        function displayTransactions(transactions) {
+            const container = document.getElementById('transactionsList');
+            container.innerHTML = '';
+
+            transactions.forEach(transaction => {
+                const card = document.createElement('div');
+                card.className = `transaction-card ${transaction.isActive ? 'active' : 'completed'}`;
+                
+                card.innerHTML = `
+                    <h4>${transaction.transactionId}</h4>
+                    <p><strong>Station:</strong> ${transaction.stationId}</p>
+                    <p><strong>Status:</strong> ${transaction.isActive ? 'Ativa' : 'Finalizada'}</p>
+                    <p><strong>Estado:</strong> ${transaction.chargingState}</p>
+                    <p><strong>Energia:</strong> ${transaction.totalKwh} kWh</p>
+                    <p><strong>Tempo:</strong> ${transaction.timeSpentCharging}s</p>
+                    <p><strong>Criada:</strong> ${new Date(transaction.createdAt).toLocaleString()}</p>
+                    <button onclick="selectTransaction('${transaction.transactionId}')">Selecionar</button>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        // Selecionar transação
+        function selectTransaction(transactionId) {
+            currentTransactionId = transactionId;
+            document.getElementById('transactionId').value = transactionId;
+            updateTransactionStatus(`Transação selecionada: ${transactionId}`);
+            log(`✅ Transação selecionada: ${transactionId}`, 'info');
+        }
+
+        // Atualizar status
+        function updateTransactionStatus(message) {
+            const statusDiv = document.getElementById('transactionStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = 'status info';
+        }
+
+        // Limpar todas as transações
+        async function clearTransactions() {
+            if (!confirm('Tem certeza que deseja deletar TODAS as transações?')) {
+                return;
+            }
+
+            const query = `
+                mutation ClearAllTransactions {
+                    delete_Transactions(where: {}) {
+                        affected_rows
+                    }
+                }
+            `;
+
+            try {
+                const result = await graphqlRequest(query);
+                log(`🗑️ ${result.delete_Transactions.affected_rows} transações deletadas`, 'success');
+                loadTransactions();
+            } catch (error) {
+                log(`❌ Erro ao limpar transações: ${error.message}`, 'error');
+            }
+        }
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🚀 Testador de Transações iniciado', 'info');
+            loadTransactions();
+        });
+    </script>
+</body>
+</html>

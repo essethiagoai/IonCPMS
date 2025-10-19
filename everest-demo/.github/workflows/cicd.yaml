@@ -1,0 +1,165 @@
+name: cicd
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  docker-build-and-push-images:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        include:
+          - host_namespace: ghcr.io/everest/everest-demo
+            image_name: mqtt-server
+            context: ./mosquitto
+          - host_namespace: ghcr.io/everest/everest-demo
+            image_name: nodered
+            context: ./nodered
+#           - host_namespace: ghcr.io/everest/everest-demo
+#             image_name: manager
+#             context: ./manager
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure Docker image version is not referencing an existing release
+        id: docker-image-version-check
+        shell: bash
+        run: |
+          if ! [[ -s '.env'  ]]; then
+            echo 'Error: No .env file found.'
+            exit 1
+          fi
+
+          if ! grep -qE '^TAG=' .env; then
+            echo 'Error: .env must contain a TAG variable.'
+            exit 1
+          fi
+
+          source .env
+
+          # Fail if any previous Docker image version value matches the one in
+          # this PR (excluding the current image version).
+          for commit in $(git --no-pager log --first-parent --format=%H -- .env | tail -n +2); do
+            if git --no-pager grep -hF "${TAG}" $commit -- .env | grep -qx ${TAG}; then
+              echo 'Error: The version in .env matches an'
+              echo '       earlier version on main. Please update the value in'
+              echo '       .env to a new version.'
+              exit 1
+            fi
+          done
+
+          if git show-ref --tags --verify --quiet "refs/tags/v${TAG}"; then
+            echo "Error: The tag 'v${TAG}' is already a GitHub release."
+            echo '       Please update the version in .env'
+            exit 1
+          else
+            echo "TAG=${TAG}" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set Docker image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ matrix.host_namespace }}/${{ matrix.image_name }}
+          tags: |
+            type=semver,pattern={{version}},value=v${{ steps.docker-image-version-check.outputs.TAG }}
+
+      - name: Log into GitHub container registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+    
+#       - name: Build and export to Docker
+#         uses: docker/build-push-action@v6
+#         with:
+#           context: ${{ matrix.context }}
+#           platforms: linux/amd64,linux/arm64
+#           push: false
+#           tags: ${{ steps.meta.outputs.tags }}
+#           labels: ${{ steps.meta.outputs.labels }}
+#           cache-from: type=gha,scope=${{ matrix.image_name }}
+#           cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}
+# 
+      # Following four steps are specifically for running automated tests which includes loading the 
+      # mqtt-server image from the GitHub Actions Cache so that the docker compose automated tests can 
+      # use this already built image instead of pulling it from GitHub Container Registry
+      # Note: These steps are only for the mqtt-server and the manager images and not for the nodered image.
+      # This is because, currently, docker-compose.automated-tests.yml uses only these two images for running automated tests.
+#       - name: Save Docker image
+#         if: ${{ matrix.image_name == 'mqtt-server' }}
+#         id: save-mqtt-image
+#         shell: bash
+#         run: |
+#           echo "TAG=${{ steps.docker-image-version-check.outputs.TAG }}"
+#           docker save --output /tmp/mqtt-server_${{ steps.docker-image-version-check.outputs.TAG }}.tar ghcr.io/everest/everest-demo/mqtt-server:${{ steps.docker-image-version-check.outputs.TAG }}
+#       
+#       - name: Upload mqtt-server image as Artifact
+#         if: ${{ matrix.image_name == 'mqtt-server' }}
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: mqtt_server_image_${{ steps.docker-image-version-check.outputs.TAG }}
+#           path: /tmp/mqtt-server_${{ steps.docker-image-version-check.outputs.TAG }}.tar
+#           overwrite: true
+# 
+#       - name: Download mqtt-server image as Artifact
+#         if: ${{ matrix.image_name == 'manager' }}
+#         uses: actions/download-artifact@v4
+#         with:
+#           name: mqtt_server_image_${{ steps.docker-image-version-check.outputs.TAG }}
+#           path: /tmp
+# 
+#       - name: Load Docker image
+#         if: ${{ matrix.image_name == 'manager' }}
+#         id: load-mqtt-image
+#         shell: bash
+#         run: |
+#           docker load --input /tmp/mqtt-server_${{ steps.docker-image-version-check.outputs.TAG }}.tar     
+#     
+#       - name: Run automated tests using docker-compose.automated-tests.yml
+#         if: ${{ matrix.image_name == 'manager' }}
+#         run: |
+#           docker images
+#           echo "Running docker compose up..."
+#           docker compose --project-name everest-ac-automated-testing \
+#                   --file "docker-compose.automated-tests.yml" up \
+#                     --abort-on-container-exit \
+#                     --exit-code-from manager
+# 
+#           exit_code=$?            
+#           echo "Docker-compose up exit code from manager service: $exit_code"
+      
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image_name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}

@@ -1,0 +1,418 @@
+# Configuração EVerest para conectar ao CitrineOS
+# Baseado em config-sil-ocpp201.yaml mas com URLs do CitrineOS
+
+active_modules:
+  - api
+  - auth
+  - energy_manager
+  - error_history
+  - ev_api
+  - ev_manager_1
+  - ev_manager_2
+  - evse_manager_1
+  - evse_manager_1_api_sink
+  - evse_manager_1_ocpp_sink
+  - evse_manager_2
+  - evse_manager_2_api_sink
+  - evse_manager_2_ocpp_sink
+  - evse_security
+  - grid_connection_point
+  - iso15118_charger
+  - ocpp
+  - persistent_store
+  - slac
+  - system
+  - token_provider_1
+  - yeti_driver_1
+  - yeti_driver_2
+
+active_requirements:
+  - api
+  - auth
+  - energy_manager
+  - error_history
+  - ev_api
+  - ev_manager_1
+  - ev_manager_2
+  - evse_manager_1
+  - evse_manager_1_api_sink
+  - evse_manager_1_ocpp_sink
+  - evse_manager_2
+  - evse_manager_2_api_sink
+  - evse_manager_2_ocpp_sink
+  - evse_security
+  - grid_connection_point
+  - iso15118_charger
+  - ocpp
+  - persistent_store
+  - slac
+  - system
+  - token_provider_1
+  - yeti_driver_1
+  - yeti_driver_2
+
+active_implementations:
+  - api
+  - auth
+  - energy_manager
+  - error_history
+  - ev_api
+  - ev_manager_1
+  - ev_manager_2
+  - evse_manager_1
+  - evse_manager_1_api_sink
+  - evse_manager_1_ocpp_sink
+  - evse_manager_2
+  - evse_manager_2_api_sink
+  - evse_manager_2_ocpp_sink
+  - evse_security
+  - grid_connection_point
+  - iso15118_charger
+  - ocpp
+  - persistent_store
+  - slac
+  - system
+  - token_provider_1
+  - yeti_driver_1
+  - yeti_driver_2
+
+modules:
+  api:
+    module: API
+    config_module:
+      api_version: "0.0.1"
+      supported_ISO15118_2: true
+    connections:
+      evse_manager:
+        - module_id: evse_manager_1
+          implementation_id: evse
+        - module_id: evse_manager_2
+          implementation_id: evse
+      ocpp:
+        - module_id: ocpp
+          implementation_id: ocpp_generic
+      error_history:
+        - module_id: error_history
+          implementation_id: error_history
+      evse_energy_sink:
+        - module_id: evse_manager_1_api_sink
+          implementation_id: external_limits
+        - module_id: evse_manager_2_api_sink
+          implementation_id: external_limits
+
+  ocpp:
+    module: OCPP201
+    config_module:
+      # Configuração para conectar ao CitrineOS
+      ChargePointId: "cp001"
+      CentralSystemURI: "ws://host.docker.internal:8081/cp001"
+      SecurityProfile: 1
+      MessageLogPath: "/tmp/ocpp_messages.log"
+      MessageLogEnabled: true
+      # Configurações de autenticação
+      BasicAuthPassword: "DEADBEEFDEADBEEF"
+      # Configurações de certificados (se necessário)
+      # CertificatePath: "/path/to/cert.pem"
+      # PrivateKeyPath: "/path/to/key.pem"
+    connections:
+      evse_manager:
+        - module_id: evse_manager_1
+          implementation_id: evse
+        - module_id: evse_manager_2
+          implementation_id: evse
+      auth:
+        - module_id: auth
+          implementation_id: main
+      system:
+        - module_id: system
+          implementation_id: main
+      security:
+        - module_id: evse_security
+          implementation_id: main
+      evse_energy_sink:
+        - module_id: grid_connection_point
+          implementation_id: external_limits
+        - module_id: evse_manager_1_ocpp_sink
+          implementation_id: external_limits
+        - module_id: evse_manager_2_ocpp_sink
+          implementation_id: external_limits
+      reservation:
+        - module_id: auth
+          implementation_id: reservation
+    access:
+      config:
+        allow_global_read: true
+        allow_global_write: false
+        allow_set_read_only: false
+        modules:
+          auth:
+            allow_read: true
+            allow_write: true
+            allow_set_read_only: true
+
+  # Outros módulos permanecem iguais...
+  auth:
+    module: Auth
+    config_module:
+      selection_algorithm: FindFirst
+    connections:
+      token_provider:
+        - module_id: token_provider_1
+          implementation_id: main
+        - module_id: ocpp
+          implementation_id: auth_provider
+      token_validator:
+        - module_id: ocpp
+          implementation_id: auth_validator
+      evse_manager:
+        - module_id: evse_manager_1
+          implementation_id: evse
+        - module_id: evse_manager_2
+          implementation_id: evse
+      kvs:
+        - module_id: persistent_store
+          implementation_id: main
+
+  # Configurações dos outros módulos...
+  evse_manager_1:
+    module: EvseManager
+    config_module:
+      evse_id: 1
+      connector_1_id: 1
+      connector_2_id: 2
+      max_current: 32.0
+    connections:
+      energy_grid:
+        - module_id: evse_manager_1_api_sink
+          implementation_id: energy_grid
+      powermeter:
+        - module_id: yeti_driver_1
+          implementation_id: powermeter
+      auth:
+        - module_id: auth
+          implementation_id: main
+      ocpp:
+        - module_id: ocpp
+          implementation_id: main
+      ev:
+        - module_id: ev_manager_1
+          implementation_id: ev
+
+  evse_manager_2:
+    module: EvseManager
+    config_module:
+      evse_id: 2
+      connector_1_id: 1
+      connector_2_id: 2
+      max_current: 32.0
+    connections:
+      energy_grid:
+        - module_id: evse_manager_2_api_sink
+          implementation_id: energy_grid
+      powermeter:
+        - module_id: yeti_driver_2
+          implementation_id: powermeter
+      auth:
+        - module_id: auth
+          implementation_id: main
+      ocpp:
+        - module_id: ocpp
+          implementation_id: main
+      ev:
+        - module_id: ev_manager_2
+          implementation_id: ev
+
+  # Configurações dos outros módulos permanecem iguais...
+  system:
+    module: System
+    config_module:
+      system_time: "2025-01-01T00:00:00Z"
+    connections: {}
+
+  persistent_store:
+    module: PersistentStore
+    connections: {}
+
+  evse_security:
+    module: EvseSecurity
+    config_module:
+      private_key_password: "123456"
+    connections: {}
+
+  energy_manager:
+    module: EnergyManager
+    connections:
+      energy_trunk:
+        - module_id: grid_connection_point
+          implementation_id: energy_grid
+
+  # Configurações dos outros módulos...
+  ev_manager_1:
+    module: EvManager
+    config_module:
+      ev_id: 1
+    connections:
+      evse_manager:
+        - module_id: evse_manager_1
+          implementation_id: evse
+      iso15118_ev:
+        - module_id: iso15118_charger
+          implementation_id: ev
+      slac:
+        - module_id: slac
+          implementation_id: ev
+
+  ev_manager_2:
+    module: EvManager
+    config_module:
+      ev_id: 2
+    connections:
+      evse_manager:
+        - module_id: evse_manager_2
+          implementation_id: evse
+      iso15118_ev:
+        - module_id: iso15118_charger
+          implementation_id: ev
+      slac:
+        - module_id: slac
+          implementation_id: ev
+
+  iso15118_charger:
+    module: EvseV2G
+    config_module:
+      supported_ISO15118_2: true
+    connections:
+      evse_manager:
+        - module_id: evse_manager_1
+          implementation_id: evse
+        - module_id: evse_manager_2
+          implementation_id: evse
+      ev:
+        - module_id: ev_manager_1
+          implementation_id: ev
+        - module_id: ev_manager_2
+          implementation_id: ev
+
+  slac:
+    module: SlacSimulator
+    connections:
+      evse_manager:
+        - module_id: evse_manager_1
+          implementation_id: evse
+        - module_id: evse_manager_2
+          implementation_id: evse
+      ev:
+        - module_id: ev_manager_1
+          implementation_id: ev
+        - module_id: ev_manager_2
+          implementation_id: ev
+
+  token_provider_1:
+    module: DummyTokenProviderManual
+    config_module:
+      tokens:
+        - id_token: "DEADBEEF"
+          type: "ISO14443"
+    connections: {}
+
+  yeti_driver_1:
+    module: YetiSimulator
+    config_module:
+      powermeter_id: 1
+    connections: {}
+
+  yeti_driver_2:
+    module: YetiSimulator
+    config_module:
+      powermeter_id: 2
+    connections: {}
+
+  evse_manager_1_api_sink:
+    module: EnergyNode
+    mapping:
+      module:
+        evse: 1
+    config_module:
+      fuse_limit_A: 32.0
+      phase_count: 3
+    connections:
+      energy_consumer:
+        - module_id: evse_manager_1_ocpp_sink
+          implementation_id: energy_grid
+      powermeter:
+        - module_id: yeti_driver_1
+          implementation_id: powermeter
+
+  evse_manager_2_api_sink:
+    module: EnergyNode
+    mapping:
+      module:
+        evse: 2
+    config_module:
+      fuse_limit_A: 32.0
+      phase_count: 3
+    connections:
+      energy_consumer:
+        - module_id: evse_manager_2_ocpp_sink
+          implementation_id: energy_grid
+      powermeter:
+        - module_id: yeti_driver_2
+          implementation_id: powermeter
+
+  evse_manager_1_ocpp_sink:
+    module: EnergyNode
+    mapping:
+      module:
+        evse: 1
+    config_module:
+      fuse_limit_A: 32.0
+      phase_count: 3
+    connections:
+      energy_consumer:
+        - module_id: evse_manager_1
+          implementation_id: energy_grid
+
+  evse_manager_2_ocpp_sink:
+    module: EnergyNode
+    mapping:
+      module:
+        evse: 2
+    config_module:
+      fuse_limit_A: 32.0
+      phase_count: 3
+    connections:
+      energy_consumer:
+        - module_id: evse_manager_2
+          implementation_id: energy_grid
+
+  grid_connection_point:
+    module: EnergyNode
+    mapping:
+      module:
+        evse: 0
+    config_module:
+      fuse_limit_A: 40.0
+      phase_count: 3
+    connections:
+      price_information: []
+      energy_consumer:
+        - module_id: evse_manager_1_api_sink
+          implementation_id: energy_grid
+        - module_id: evse_manager_2_api_sink
+          implementation_id: energy_grid
+
+  error_history:
+    module: ErrorHistory
+    config_implementation:
+      error_history:
+        max_entries: 1000
+    connections: {}
+
+  ev_api:
+    module: EvAPI
+    connections:
+      ev_manager:
+        - implementation_id: ev_manager
+          module_id: ev_manager_1
+        - implementation_id: ev_manager
+          module_id: ev_manager_2

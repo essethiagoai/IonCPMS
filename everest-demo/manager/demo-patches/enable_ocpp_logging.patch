@@ -1,0 +1,36 @@
+diff --git /ext/cache/cpm/libocpp/b10f905a477fb9c9ae21ca2c4a6c77491050a59c/libocpp/lib/ocpp/v2/functional_blocks/smart_charging.cpp /ext/cache/cpm/libocpp/b10f905a477fb9c9ae21ca2c4a6c77491050a59c/libocpp/lib/ocpp/v2/functional_blocks/smart_charging.cpp
+new file mode 100644
+index 9981492c..8b133d00 100644
+--- /ext/cache/cpm/libocpp/b10f905a477fb9c9ae21ca2c4a6c77491050a59c/libocpp/lib/ocpp/v2/functional_blocks/smart_charging.cpp
++++ /ext/cache/cpm/libocpp/b10f905a477fb9c9ae21ca2c4a6c77491050a59c/libocpp/lib/ocpp/v2/functional_blocks/smart_charging.cpp
+@@ -696,7 +696,7 @@ void SmartCharging::notify_ev_charging_needs_req(const NotifyEVChargingNeedsRequ
+ }
+ 
+ void SmartCharging::handle_set_charging_profile_req(Call<SetChargingProfileRequest> call) {
+-    EVLOG_debug << "Received SetChargingProfileRequest: " << call.msg << "\nwith messageId: " << call.uniqueId;
++    EVLOG_info << "Received SetChargingProfileRequest: " << call.msg << "\nwith messageId: " << call.uniqueId;
+     auto msg = call.msg;
+     SetChargingProfileResponse response;
+     response.status = ChargingProfileStatusEnum::Rejected;
+@@ -721,7 +721,7 @@ void SmartCharging::handle_set_charging_profile_req(Call<SetChargingProfileReque
+         response.statusInfo = StatusInfo();
+         response.statusInfo->reasonCode = "InvalidValue";
+         response.statusInfo->additionalInfo = "ChargingStationExternalConstraintsInSetChargingProfileRequest";
+-        EVLOG_debug << "Rejecting SetChargingProfileRequest:\n reasonCode: " << response.statusInfo->reasonCode.get()
++        EVLOG_info << "Rejecting SetChargingProfileRequest:\n reasonCode: " << response.statusInfo->reasonCode.get()
+                     << "\nadditionalInfo: " << response.statusInfo->additionalInfo->get();
+ 
+         ocpp::CallResult<SetChargingProfileResponse> call_result(response, call.uniqueId);
+@@ -732,10 +732,10 @@ void SmartCharging::handle_set_charging_profile_req(Call<SetChargingProfileReque
+ 
+     response = this->conform_validate_and_add_profile(msg.chargingProfile, msg.evseId);
+     if (response.status == ChargingProfileStatusEnum::Accepted) {
+-        EVLOG_debug << "Accepting SetChargingProfileRequest";
++        EVLOG_info << "Accepting SetChargingProfileRequest";
+         this->set_charging_profiles_callback();
+     } else {
+-        EVLOG_debug << "Rejecting SetChargingProfileRequest:\n reasonCode: " << response.statusInfo->reasonCode.get()
++        EVLOG_info << "Rejecting SetChargingProfileRequest:\n reasonCode: " << response.statusInfo->reasonCode.get()
+                     << "\nadditionalInfo: " << response.statusInfo->additionalInfo->get();
+     }
+ 

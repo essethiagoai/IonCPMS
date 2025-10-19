@@ -1,0 +1,53 @@
+#!/bin/bash
+
+echo "🚀 Configurando Simulador EVerest para Testes Transacionais..."
+echo ""
+
+# Verificar se o CitrineOS está rodando
+echo "🔍 Verificando se o CitrineOS está rodando..."
+if curl -s http://localhost:8080/docs > /dev/null; then
+    echo "✅ CitrineOS está rodando em http://localhost:8080"
+else
+    echo "❌ CitrineOS não está rodando"
+    echo "💡 Execute: ./setup-citrineos.sh primeiro"
+    exit 1
+fi
+
+echo ""
+echo "📋 Passos para configurar o EVerest Simulator:"
+echo ""
+echo "1. 📥 Clone o repositório EVerest Demo:"
+echo "   git clone https://github.com/EVerest/everest-demo.git"
+echo "   cd everest-demo"
+echo ""
+echo "2. 🔧 Configure o EVerest para conectar ao CitrineOS:"
+echo "   # Edite o arquivo docker-compose.ocpp201.yml"
+echo "   # Altere a variável EVEREST_TARGET_URL para:"
+echo "   EVEREST_TARGET_URL=http://host.docker.internal:8080"
+echo ""
+echo "3. 🏃 Execute o EVerest:"
+echo "   docker compose --project-name everest-ac-demo --file docker-compose.ocpp201.yml up -d"
+echo ""
+echo "4. 📊 Acesse as interfaces:"
+echo "   - EVerest UI: http://localhost:1880/ui/"
+echo "   - NodeRed UI: http://localhost:1880/"
+echo "   - OCPP Logs: http://localhost:8888/"
+echo ""
+echo "5. 🎮 Simule eventos de carregamento:"
+echo "   - Plug/Unplug do veículo"
+echo "   - Start/Stop de transações"
+echo "   - Pause/Resume de carregamento"
+echo "   - Mudanças de status do carregador"
+echo ""
+echo "💡 O EVerest simula um carregador real com OCPP 2.0.1"
+echo "   e permite testar todas as funcionalidades transacionais!"
+echo ""
+echo "🎯 Funcionalidades que você pode testar:"
+echo "   ✅ Início de transações"
+echo "   ✅ Parada de transações"
+echo "   ✅ Pausa/Retomada"
+echo "   ✅ Monitoramento em tempo real"
+echo "   ✅ Relatórios de energia"
+echo "   ✅ Status do carregador"
+echo "   ✅ Autorizações"
+echo "   ✅ Tarifação"

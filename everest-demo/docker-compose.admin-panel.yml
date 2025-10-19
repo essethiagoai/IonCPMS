@@ -1,0 +1,24 @@
+version: "3.6"
+
+services:
+  mqtt-server:
+    image: ghcr.io/everest/everest-demo/mqtt-server:${TAG}
+    logging:
+      driver: none
+
+  manager:
+    image: ghcr.io/everest/everest-demo/manager:${TAG}
+    deploy:
+      resources:
+        limits:
+          cpus: "${EVEREST_MANAGER_CPUS}"
+          memory: "${EVEREST_MANAGER_MEMORY}"
+    depends_on:
+      - mqtt-server
+    environment:
+      - MQTT_SERVER_ADDRESS=mqtt-server
+    ports:
+      - 8849:8849
+    entrypoint: "sh /ext/build/run-scripts/run-sil.sh"
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
