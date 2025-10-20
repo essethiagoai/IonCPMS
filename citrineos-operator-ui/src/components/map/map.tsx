@@ -44,31 +44,39 @@ export const LocationMap: React.FC<MapProps> = ({
   // Create station markers from location data
   const stationMarkers: MapMarkerData[] = useMemo(() => {
     return locations.flatMap((location) => {
-      return (location.chargingPool || []).map((station) => {
-        const coordinates = station.coordinates || location.coordinates;
-        const position = {
-          lat: coordinates.coordinates[1],
-          lng: coordinates.coordinates[0],
-        };
+      return (location.chargingPool || [])
+        .map((station) => {
+          const coordinates = station.coordinates || location.coordinates;
+          
+          // Skip if coordinates are null or invalid
+          if (!coordinates || !coordinates.coordinates || !Array.isArray(coordinates.coordinates) || coordinates.coordinates.length < 2) {
+            return null;
+          }
+          
+          const position = {
+            lat: coordinates.coordinates[1],
+            lng: coordinates.coordinates[0],
+          };
 
-        return {
-          position,
-          identifier: station.id,
-          type: 'station' as const,
-          locationId: location.id!.toString(),
-          status: station.isOnline ? 'online' : ('offline' as const),
-          color: station.isOnline
-            ? 'var(--primary-color-1)'
-            : 'var(--secondary-color-2)',
-        } as MapMarkerData;
-      });
+          return {
+            position,
+            identifier: station.id,
+            type: 'station' as const,
+            locationId: location.id!.toString(),
+            status: station.isOnline ? 'online' : ('offline' as const),
+            color: station.isOnline
+              ? 'var(--primary-color-1)'
+              : 'var(--secondary-color-2)',
+          } as MapMarkerData;
+        })
+        .filter((marker): marker is MapMarkerData => marker !== null);
     });
   }, [locations]);
 
   // Create location markers
   const locationMarkers: MapMarkerData[] = useMemo(() => {
     return locations
-      .filter((location) => location.coordinates)
+      .filter((location) => location.coordinates && location.coordinates.coordinates && Array.isArray(location.coordinates.coordinates) && location.coordinates.coordinates.length >= 2)
       .map((location) => {
         const position = {
           lat: location.coordinates.coordinates[1],
